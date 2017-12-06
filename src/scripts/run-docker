@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+docker run --rm \
+ -v "`pwd`:/workdir" \
+ -w /workdir/src \
+  -e "https_proxy=http://10.16.3.231:80" \
+ -e "http_proxy=http://10.16.3.231:80" \
+ -i microsoft/dotnet:2.0.3-sdk-jessie \
+  /bin/sh -c "${@}"

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+AVAILABLE_APPLICATIONS=("gateway-assets")
+
+# Container repo
+REPOSITORY=ingraham26
+
+# Append this prefix to compose the image name
+CONTAINER_PREFIX="coyote-api-"
+
+# Make sure we have both app to build AND tag to apply
+if [ "$#" -ne 3 ]; then
+    printf "\n  ** Error: missing parameter **\n\nUsage:\nbuild-container APPNAME USERNAME PASSWORD\n\n"
+    exit 1
+fi
+
+in_array() {
+    local haystack=${1}[@]
+    local needle=${2}
+    for i in ${!haystack}; do
+        if [[ ${i} == ${needle} ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+CONTAINER_SUFFIX=$1
+CONTAINER_NAME=${CONTAINER_PREFIX}${CONTAINER_SUFFIX}
+docker login -u="$2" -p="$3"
+docker push ${REPOSITORY}/${CONTAINER_NAME}
+
+if [ $? == 0 ]; then
+    printf "\n\n  *** Build artifact pushed to container registry *** \n\n"
+else
+    exit 1
+fi
+

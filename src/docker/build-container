@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+AVAILABLE_APPLICATIONS=("gateway-assets")
+
+# Container repo
+REPOSITORY=ingraham26
+
+# Make sure we have both app to build AND tag to apply
+if [ "$#" -ne 2 ]; then
+    printf "\n  ** Error: missing parameters **\n\nUsage:\nbuild-container APPNAME TAG\n\n"
+    exit 1
+fi
+
+# Append this prefix to compose the image name
+CONTAINER_PREFIX="coyote-api-"
+
+in_array() {
+    local haystack=${1}[@]
+    local needle=${2}
+    for i in ${!haystack}; do
+        if [[ ${i} == ${needle} ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+if in_array AVAILABLE_APPLICATIONS $1; then
+    CONTAINER_SUFFIX=$1
+    TAG=$2
+    CONTAINER_NAME=${CONTAINER_PREFIX}${CONTAINER_SUFFIX}
+
+    printf "\n  ** Building %s into %s \n\n" ${CONTAINER_SUFFIX} ${CONTAINER_NAME}
+
+    docker build --pull -t ${CONTAINER_NAME} -f src/docker/${CONTAINER_SUFFIX}/Dockerfile .
+
+    if [ $? == 0 ]; then
+        docker tag ${CONTAINER_NAME}:latest ${REPOSITORY}/${CONTAINER_NAME}:latest
+        docker tag ${CONTAINER_NAME}:latest ${REPOSITORY}/${CONTAINER_NAME}:${2}
+
+        printf "\n\n  *** Container image built *** \n\n"
+    else
+        exit 1;
+    fi
+else
+    IMPLODED_VALUES=$(printf ", %s" "${AVAILABLE_APPLICATIONS[@]}")
+    IMPLODED_VALUES=${IMPLODED_VALUES:1}
+    printf "\n ** Error: invalid image given. Please specify which image to build & push into Docker: "
+    echo $IMPLODED_VALUES
+    printf "\n"
+fi

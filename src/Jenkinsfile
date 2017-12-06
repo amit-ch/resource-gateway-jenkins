@@ -1,0 +1,77 @@
+#!groovy
+/**
+ * Gateway API service jenkins build pipeline for both runtime and webserver.
+ *
+ * @see https://github.com/jenkinsci/pipeline-examples/blob/master/docs/BEST_PRACTICES.md
+ */
+
+// As weird as it might look, we need to do this hack in order to get the git commit for our build tag
+def getGitHash = {
+    sh "git rev-parse --short HEAD > git-revision"
+    return readFile('git-revision').trim()
+}
+
+// Returns a string with the current timestamp
+def getCurrentTimestamp = {
+    sh "date +%Y-%m-%dT%H.%M > build-date"
+    return readFile('build-date').trim()
+}
+
+// Works out the current git repo name
+def getGitRepoName = {
+    sh "git remote -v | head -n1 | awk '{print \$2}' | sed 's/.*\\///' | sed 's/\\.git//' > git-repo-name "
+    String repoName = readFile('git-repo-name').trim()
+    sh "rm git-repo-name"
+    return repoName
+}
+
+// Define some stuff to have it in scope of each stage.
+def branch          = 'master'
+def sanitisedBranch = branch.replaceAll(/[^a-zA-Z0-9_-]/, "_")
+def buildTag        = ''
+
+node {
+    // Multibranch pipeline UI does not have a way to limit concurrent builds. This will stop two builds on any
+    // branch from happening simultaneously, they will be queued instead.
+    properties([disableConcurrentBuilds()])
+
+        try {
+            stage ('Build') {
+                
+                // Make build tag based on branch name, jenkins build number and git hash
+                 checkout scm
+                
+                 buildTag = sanitisedBranch + '-' + getCurrentTimestamp() + '-' + getGitHash()
+                println("Building branch '${branch}' into docker tag '${buildTag}'")
+
+                sh 'src/scripts/run-docker "dotnet restore"'
+                sh 'src/scripts/run-docker "dotnet build"'
+            }
+
+            // Run tests
+            stage ('Run Unit Tests') {
+                sh "src/scripts/run-tests"
+            }
+
+            // Build apps - do it sequentially to benefit from caches
+            stage ('Docker Build and Push') 
+            {
+                sh "src/docker/build-container gateway-assets $buildTag"
+                  withCredentials([
+                            [$class: 'UsernamePasswordMultiBinding', credentialsId: 'docker',
+                             usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD'],])
+                             {
+                                 sh "src/docker/push-container gateway-assets $USERNAME $PASSWORD"
+                                }
+
+            }
+                            // Finally, deploy
+                stage ('Kubernetes Deploy') {
+                    sh "kubectl apply -f src/kubernetes-deployment/gateway-assets-deployment.yaml"
+                    sh "kubectl apply -f src/kubernetes-deployment/gateway-assets-service.yaml"
+                }
+        } 
+        catch (Exception e) {
+            throw e
+        }    
+}

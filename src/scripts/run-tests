@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+printf "\n\n  *** Running Tests *** \n\n"
+`dirname $0`/run-docker "dotnet test Web.UnitTests  -c:Release"

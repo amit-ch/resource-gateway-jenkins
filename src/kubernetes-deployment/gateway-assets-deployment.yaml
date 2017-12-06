@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: gateway-assets
+  namespace: default
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: gateway-assets
+    spec:
+      containers:
+      - name: gateway-assets
+        imagePullPolicy: Always
+        image: "ingraham26/coyote-api-gateway-assets:latest"
+        resources:
+          requests:
+            cpu:    "125m"
+            memory: "64Mi"
+          limits:
+            cpu:    "125m"
+            memory: "64Mi"
+        ports:
+        - containerPort: 80
