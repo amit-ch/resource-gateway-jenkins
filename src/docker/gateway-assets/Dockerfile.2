@@ -3,13 +3,20 @@ FROM microsoft/dotnet:2.0.3-sdk AS build-env
 WORKDIR /sln
 
 # Copy csproj and restore as distinct layers
-COPY ./src/ ./
+COPY ./src/GatewayAssets.sln ./
 
 ENV HTTP_PROXY=http://10.16.3.231:80
 ENV HTTPS_PROXY=http://10.16.3.231:80
 
+# Copy all the csproj files and restore to cache the layer for faster builds
+# The dotnet_build.sh script does this anyway, so superfluous, but docker can 
+# cache the intermediate images so _much_ faster
+COPY ./src/DomainModel/DomainModel.csproj  ./DomainModel/DomainModel.csproj  
+COPY ./src/Web/Web.csproj  ./Web/Web.csproj  
+COPY ./src/Web.UnitTests/Web.UnitTests.csproj  ./Web.UnitTests/Web.UnitTests.csproj  
 RUN dotnet restore
 
+#COPY ./sln ./
 RUN dotnet build -c Release --no-restore
 
 RUN dotnet test "./Web.UnitTests/Web.UnitTests.csproj" -c Release --no-build --no-restore
